@@ -1,0 +1,56 @@
+// Тут описано, які таблиці є в базі даних.
+// З цього файлу Prisma сама створює таблиці в Postgres і код для роботи з ними.
+// Документація: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Важливість події. Це список із трьох варіантів —
+// у базі можна зберегти тільки одне з цих значень.
+enum Importance {
+  NORMAL // звичайна
+  IMPORTANT // важлива
+  CRITICAL // критична
+}
+
+// Користувач сайту.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  // Пароль зберігаємо не як текст, а як "хеш" — з нього не можна відновити пароль.
+  // Порожній у тих, хто зайшов через Google.
+  passwordHash String?
+  image        String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Усі події цього користувача.
+  events Event[]
+}
+
+// Подія в календарі.
+model Event {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  startsAt    DateTime // дата й час події
+  importance  Importance @default(NORMAL)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Чия це подія. onDelete: Cascade означає:
+  // якщо видалити користувача — його події видаляться разом із ним.
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Індекси прискорюють пошук подій конкретного користувача.
+  @@index([userId])
+  @@index([userId, startsAt])
+}
