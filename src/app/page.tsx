@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { CalendarDays, Search, ShieldCheck, Star } from "lucide-react";
+import { auth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -27,7 +29,11 @@ const features = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  // Дивимось, чи користувач уже увійшов — від цього залежить,
+  // які кнопки показати.
+  const session = await auth();
+
   return (
     <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col justify-center gap-10 px-6 py-16">
       <div className="flex flex-col items-center gap-4 text-center">
@@ -39,9 +45,21 @@ export default function HomePage() {
           Простий календар для твоїх зустрічей, справ і нагадувань. Додавай
           події, познач їх важливість і завжди тримай план перед очима.
         </p>
-        <Button size="lg" disabled>
-          Календар з&apos;явиться в наступній гілці
-        </Button>
+
+        {session?.user ? (
+          <Button asChild size="lg">
+            <Link href="/calendar">Мій календар</Link>
+          </Button>
+        ) : (
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button asChild size="lg">
+              <Link href="/register">Створити акаунт</Link>
+            </Button>
+            <Button asChild size="lg" variant="outline">
+              <Link href="/login">Увійти</Link>
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
