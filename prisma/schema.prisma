@@ -1,0 +1,107 @@
+// Тут описано, які таблиці є в базі даних.
+// З цього файлу Prisma сама створює таблиці в Postgres і код для роботи з ними.
+// Документація: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Важливість події. Це список із трьох варіантів —
+// у базі можна зберегти тільки одне з цих значень.
+enum Importance {
+  NORMAL // звичайна
+  IMPORTANT // важлива
+  CRITICAL // критична
+}
+
+// Користувач сайту.
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  // Пароль зберігаємо не як текст, а як "хеш" — з нього не можна відновити пароль.
+  // Порожній у тих, хто зайшов через Google.
+  passwordHash  String?
+  image         String?
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Усі події цього користувача.
+  events Event[]
+
+  // Потрібні для входу через Google (їх заповнює бібліотека NextAuth).
+  accounts Account[]
+  sessions Session[]
+}
+
+// Прив'язка акаунта Google (чи іншого сервісу) до нашого користувача.
+// Цю таблицю створює і заповнює сама бібліотека NextAuth — руками сюди не лізем.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Один і той самий акаунт Google не можна прив'язати двічі.
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+// Сесія (запис "цей користувач зараз залогінений").
+// Ми користуємось JWT, тому таблиця майже не використовується,
+// але NextAuth вимагає, щоб вона існувала.
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// Одноразові коди підтвердження (теж службова таблиця NextAuth).
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// Подія в календарі.
+model Event {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  startsAt    DateTime // дата й час події
+  importance  Importance @default(NORMAL)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  // Чия це подія. onDelete: Cascade означає:
+  // якщо видалити користувача — його події видаляться разом із ним.
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Індекси прискорюють пошук подій конкретного користувача.
+  @@index([userId])
+  @@index([userId, startsAt])
+}
